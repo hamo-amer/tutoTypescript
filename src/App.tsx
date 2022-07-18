@@ -1,12 +1,8 @@
-import React, {
-  DetailedHTMLProps,
-  useCallback,
-  useEffect,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import React, { DetailedHTMLProps, useCallback, useRef } from "react";
+import { useTodos } from "./useTodos";
 import "./App.css";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { store, selectTodos, addTodo, removeTodo } from "./store";
 
 const Button: React.FunctionComponent<
   DetailedHTMLProps<
@@ -27,98 +23,61 @@ const Button: React.FunctionComponent<
   </button>
 );
 
-const useNumber = (initialeValue: number) => useState<number>(initialeValue);
-
-type UseNumberValue = ReturnType<typeof useNumber>[0];
-type UseNumberSetValue = ReturnType<typeof useNumber>[1];
-
-const Incrementer: React.FunctionComponent<{
-  value: UseNumberValue;
-  setValue: UseNumberSetValue;
-}> = ({ value, setValue }) => (
-  <div>
-    <Button onClick={() => setValue(value + 1)} title={`Add -${value}`} />
-  </div>
-);
-
 const Header = ({ title }: { title: string }) => <h2>{title}</h2>;
 
 const Box: React.FunctionComponent<{ children: string }> = ({ children }) => {
   return <div>{children}</div>;
 };
-
-const List: React.FunctionComponent<{
-  items: string[];
-  onClick?: (item: string) => void;
-}> = ({ items, onClick }) => (
-  <ul>
-    {items.map((item, i) => (
-      <li key={i} onClick={() => onClick?.(item)}>
-        {" "}
-        {item}
-      </li>
-    ))}
-  </ul>
-);
-interface Payload {
-  text: string;
+function UL<T>({
+  items,
+  render,
+}: React.DetailedHTMLProps<
+  React.HTMLAttributes<HTMLUListElement>,
+  HTMLUListElement
+> & {
+  items: T[];
+  render: (item: T) => React.ReactNode;
+}) {
+  return (
+    <ul>
+      {items.map((item, i) => (
+        <li key={i}>{render(item)}</li>
+      ))}
+    </ul>
+  );
 }
-interface Todo {
-  id: number;
-  text: string;
-  done: boolean;
-}
-type actionType =
-  | { type: "ADD"; text: string }
-  | { type: "REMOVE"; id: number };
 
 function App() {
-  const onListClick = useCallback((item: string) => alert(item), []);
-
-  const [payload, setPayload] = useState<Payload | null>(null);
-
-  useEffect(() => {
-    fetch("/data.json")
-      .then(res => res.json())
-      .then(res => setPayload(res));
-  }, []);
-
-  const [todos, dispatch] = useReducer((state: Todo[], action: actionType) => {
-    switch (action.type) {
-      case "ADD":
-        return [...state, { id: state.length, text: action.text, done: false }];
-      case "REMOVE":
-        return state.filter(({ id }) => id !== action.id);
-      default:
-        return state;
-    }
-  }, []);
+  const todos = useSelector(selectTodos);
+  const dispatch = useDispatch();
+  // const { todos, addTodo, removeTodo } = useTodos([]);
   const newTodo = useRef<HTMLInputElement>(null);
 
-  const onAddTodo = () => {
+  const onAddTodo = useCallback(() => {
     if (newTodo.current) {
-      dispatch({ type: "ADD", text: newTodo.current.value });
+      dispatch(addTodo(newTodo.current.value));
       newTodo.current.value = "";
     }
-  };
-  const [value, setValue] = useState(0);
+  }, [dispatch]);
 
   return (
     <div>
       <Header title='introduction' />
       <Box>Hello There</Box>
-      <List items={["one", "two", "three"]} onClick={onListClick} />
-      <Box>{JSON.stringify(payload)}</Box>
-      <Incrementer value={value} setValue={setValue} />
+
       <Header title='Todos' />
-      {todos.map(todo => (
-        <div key={todo.id}>
-          {todo.text}
-          <Button onClick={() => dispatch({ type: "REMOVE", id: todo.id })}>
-            Remove
-          </Button>
-        </div>
-      ))}
+      <UL
+        items={todos}
+        render={todo => (
+          <>
+            {todo.text}
+            <Button onClick={() => dispatch(removeTodo(todo.id))}>
+              Remove
+            </Button>
+          </>
+        )}
+      />
+
       <div>
         <input type='text' ref={newTodo} />
         <Button onClick={onAddTodo}>Add Todo</Button>
@@ -126,5 +85,11 @@ function App() {
     </div>
   );
 }
-
-export default App;
+const AppWrapper = () => {
+  return (
+    <Provider store={store}>
+      <App />
+    </Provider>
+  );
+};
+export default AppWrapper;
